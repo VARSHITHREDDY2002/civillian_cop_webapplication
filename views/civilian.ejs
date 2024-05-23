@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CIVILIAN HOME PAGE</title>
+    <link href='https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.css' rel='stylesheet' />
+</head>
+<body data-userid=<%= user %>>
+    <h1>hello civilian <%= user %> </h1>
+    <h1 id="notification"></h1>
+    <button onclick="requestforhelp()">HELP</button>
+    <div id="map" style="width: 600px; height: 400px;">
+        <!-- Load a map here -->
+    </div>
+</body>
+</html>
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script src='https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.js'></script>
+
+<script type="text/javascript">
+  
+  let requestetails={};
+  let map, marker;
+    requestDetails = {
+    civilianId: "1001",
+    location: {
+        address: "Indiranagar, Bengaluru, Karnataka, India",
+        latitude: 12.9718915,
+        longitude: 77.64115449999997
+    }
+}
+    const userid=document.body.getAttribute('data-userid');
+    const socket = io();
+    socket.on('connect',()=>{
+        console.log(socket.id);
+    })
+    socket.emit('join',{userid:requestDetails.civilianId})
+    function requestforhelp(){
+        socket.emit('request-for-help',requestDetails);
+    }
+    socket.on('request-accepted',(copdetails)=>{
+        console.log(copdetails);
+        document.getElementById("notification").innerHTML =
+        `${copdetails.displayName} is near ${copdetails.location.address} and will be arriving at your location shortly.
+        You can reach them at their mobile ${copdetails.phone}`;
+
+        L.marker([
+                copdetails.location.coordinates[1],
+                copdetails.location.coordinates[0]
+            ], {
+                icon: L.icon({
+                    iconUrl: "/images/cop.png",
+                    iconSize: [60, 28]
+                })
+            }).addTo(map);
+    })
+
+    L.mapbox.accessToken = "pk.eyJ1IjoidmFyc2hpdGgyNTEwMjAwMiIsImEiOiJjbHJoY2w3dDIwOTQzMmp1ZzA5cXI0ZXkwIn0.OGFHtp3gCAsEktHdtxIedA";
+
+map = L.mapbox.map("map", "mapbox.streets"); // Load the map and give it a default style
+map.setView([12.9718915, 77.64115449999997], 15); // Load the map and set it to a given lat-lng
+marker = L.marker([12.9718915, 77.64115449999997]).addTo(map); // Display a default marker
+
+// Use MapBox geo-coding API
+map.addControl(L.mapbox.geocoderControl("mapbox.places", {
+    autocomplete: true,
+}).on("select", (data) => { // This function runs when a place is selected
+    console.log(data); // data contains the geocding results
+
+    // Extract address and coordinates from the results and save it
+    requestDetails.location = {
+        address: data.feature["place_name"],
+        latitude: data.feature.center[1],
+        longitude: data.feature.center[0]
+    };
+
+    marker.setLatLng([data.feature.center[1], data.feature.center[0]]); // Set the marker to new location
+}));
+</script>

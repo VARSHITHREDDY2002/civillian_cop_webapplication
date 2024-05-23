@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CIVILIAN HOME PAGE</title>
+    <link href='https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.css' rel='stylesheet' />
+</head>
+<body>
+    <h1>hello civilian <%= user %> </h1>
+    <h1 class="home"></h1>
+    <button onclick="helpcivillian()">HELPCIVILIAN</button>
+    <div id="map" style="width: 600px; height: 400px;">
+        <!-- Load a map here -->
+    </div>
+  
+     
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src='https://api.mapbox.com/mapbox.js/v3.3.1/mapbox.js'></script>
+
+
+    <script type="text/javascript">
+
+
+      let copdetails={};
+      let requestDetails={};
+      let map, marker;
+
+        const socket = io();
+        socket.on('connect',()=>{
+            console.log(socket.id);
+        })
+
+
+        const user = '<%= user %>';
+        socket.emit('join', { userid: user });
+        
+        
+        axios.get(`/cops/info?id=${user}`).then((response)=>{
+            // console.log(response.data);
+            copdetails=response.data;
+            console.log("copdetails"+copdetails);
+            L.mapbox.accessToken = "pk.eyJ1IjoidmFyc2hpdGgyNTEwMjAwMiIsImEiOiJjbHJoY2w3dDIwOTQzMmp1ZzA5cXI0ZXkwIn0.OGFHtp3gCAsEktHdtxIedA";
+                // Load the map and set it to a cop's lat-lng
+                map = L.mapbox.map("map", "mapbox.streets");
+                map.setView([copdetails.location.coordinates[1], copdetails.location.coordinates[0]], 15);
+
+                // Display a default marker
+                marker = L.marker([copdetails.location.coordinates[1], copdetails.location.coordinates[0]]).addTo(map);
+
+                // Use MapBox geo-coding API
+                map.addControl(L.mapbox.geocoderControl("mapbox.places", {
+                    autocomplete: true,
+                }).on("select", (data) => { // This function runs when a place is selected
+                    // data contains the geocding results
+                    console.log(data);
+
+                    // Set the marker to new location
+                    marker.setLatLng([data.feature.center[1], data.feature.center[0]]);
+                }));
+            });
+
+        
+        
+        socket.on('request-for-help',(eventdata)=>{
+            console.log(eventdata);
+            requestDetails=eventdata;
+            document.querySelector('.home').innerHTML += `Civilian ${requestDetails.civilianId} is being attacked by a wildling and needs help!
+            They're at ${requestDetails.location.address}`;
+
+            L.marker([requestDetails.location.latitude, requestDetails.location.longitude], {
+                icon: L.icon({
+                    iconUrl: "/images/civilian.png",
+                    iconSize: [50, 50]
+                })
+            }).addTo(map);
+        })
+
+        function helpcivillian()
+        {
+            socket.emit('request-accept',{requestDetails:requestDetails,
+                copdetails:copdetails})
+        }
+
+
+    </script>
+</body>
+</html>
